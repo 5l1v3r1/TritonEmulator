@@ -9,7 +9,7 @@ dump.bin
 core
 nohup.out
 
-/peda/*
-!/peda/peda.patch
+peda/*
+!peda/peda.patch
 
 .gdb_history
