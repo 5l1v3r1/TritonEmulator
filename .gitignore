@@ -8,3 +8,5 @@ nohup.out
 
 /peda/*
 !/peda/peda.patch
+
+.gdb_history
