@@ -1,0 +1,10 @@
+# 去掉.pyc文件
+*.pyc
+
+peda-session-bin.txt
+dump.bin
+core
+nohup.out
+
+/peda/*
+!/peda/peda.patch
