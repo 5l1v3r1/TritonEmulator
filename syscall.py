@@ -11,23 +11,24 @@ import i386_constant as SYS
 from utils import *
 import os
 
-log = get_logger('syscall.py')
+
+log = get_logger('syscall.py', logging.INFO)
 
 
 def syscall_read(fd, addr, length, emulator): 
     log.debug('[SYS_read] fd: %d, addr: 0x%x, length: %x' % (fd, addr, length))
     
-    if emulator.symbolize:
-        content = '234'.ljust(8, 'a')
-    else:
-        if fd == 0:
+    if fd == 0:
+        if emulator.read:
+            content = os.read(emulator.read, length) 
+        else:
             content = raw_input()
             if len(content) < length and not content.endswith('\n'):
                 content += '\n'
             else:
                 content = content[:length]
-        else:
-            content = os.read(fd,  length)
+    else:
+        content = os.read(fd,  length)
         
     emulator.triton.setConcreteMemoryAreaValue(addr, content)
     emulator.setreg('eax', len(content))

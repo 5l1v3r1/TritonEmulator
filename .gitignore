@@ -1,6 +1,9 @@
 # 去掉.pyc文件
 *.pyc
 
+# IDA tmp file
+bin.*
+
 peda-session-bin.txt
 dump.bin
 core

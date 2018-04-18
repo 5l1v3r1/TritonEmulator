@@ -69,7 +69,7 @@ class Emulator(object):
             content = content % (peda_path, type_path, breakpoint, self.dumpfile)
             f.write(content)
             
-        cmd = "gdb %s -nx -command=%s; clear" % (self.binary, debug_file)
+        cmd = "gdb %s -nx -command=%s" % (self.binary, debug_file)
         self.log.info(cmd)
         # os.system(cmd)
         subprocess.check_output(cmd, shell=True)
