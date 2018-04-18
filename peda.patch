@@ -1,0 +1,65 @@
+diff --git a/peda.py b/peda.py
+index 31eae61..157412b 100644
+--- a/peda.py
++++ b/peda.py
+@@ -5999,6 +5999,60 @@ class PEDACmd(object):
+         return
+     utils.options = ["int2hexstr", "list2hexstr", "str2intlist"]
+ 
++    def fulldump(self, filename):
++        """
++        Generate a full dump of the current execution
++        Usage:
++            fulldump <filename output>
++        """
++        # # sys.path.append('/home/bluecake/docker_share/pydev')
++        # sys.path.append('/data/pydev')
++        # try:
++        #     import pydevd
++        #     pydevd.settrace("10.2.109.194" ,port=4444, stdoutToServer=True, stderrToServer=True)
++        # except Exception as e:
++        #     print(e)
++        #     print("failed to load pycharm debugger")
++
++        pid = peda.getpid()
++        if not pid:
++            return False
++        maps = peda.get_vmmap()
++        if not maps:
++            return False
++        memory = list()
++        for s, e, x, f in maps:
++            raw  = peda.dumpmem(s, e)
++            memory.append({"start": s, "end": e, "memory": raw, "permissions": x, "name": f})
++        # GPR
++        regs = peda.getregs()
++        # XMM
++        arch = peda.getarch()[1]
++        if arch == 32:
++            xmm_num = 8
++        elif arch == 64:
++            xmm_num = 16
++        else:
++            msg("Unknown arch")
++        for i in range(xmm_num): # no xrange function in python3.5 
++            xmm = peda.execute_redirect("info registers xmm%d" % (i))
++            xmm = xmm.splitlines()
++            xmm = int(xmm[7].split()[2], 16)
++            regs.update({"xmm%d" % (i): xmm})
++        
++        import codecs
++        peda.writemem(regs['eip'], codecs.decode('65a108000000', 'hex'))
++        peda.execute('si')
++        gs_8 = peda.getreg('eax')
++
++        dump = (regs, memory, gs_8)
++        # print(repr(dump))
++        fd = open(filename, "w")
++        fd.write(repr(dump))
++        fd.close()
++        msg("Full dump saved into %s" % (filename))
++        return True
++
+ ###########################################################################
+ class pedaGDBCommand(gdb.Command):
+     """

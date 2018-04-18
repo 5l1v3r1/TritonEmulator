@@ -8,8 +8,8 @@ peda-session-bin.txt
 dump.bin
 core
 nohup.out
+input
 
-peda/*
-!peda/peda.patch
+peda/
 
 .gdb_history
