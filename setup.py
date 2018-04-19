@@ -11,7 +11,7 @@ except Exception as e:
     print("More information, please refer to https://github.com/JonathanSalwan/Triton")
     sys.exit(-1)
 
-os.system('cp peda /usr/share/peda -r')
+os.system("tar -xvf peda.tar.gz -c /usr/share/peda")
 
 setup(
     name="emulator",
