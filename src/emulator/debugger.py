@@ -19,7 +19,7 @@ from utils import *
 ###############################################################################
 class Debugger(Emulator):
 
-    def __init__(self, binary, dumpfile='dump.bin', show=True, symbolize=False):
+    def __init__(self, binary, dumpfile='', show=True, symbolize=False):
         super(Debugger, self).__init__(binary, dumpfile, show, symbolize)
         self.log = get_logger("Debugger.py")
         self.breakpoints = {}

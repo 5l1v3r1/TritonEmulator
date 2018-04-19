@@ -11,7 +11,7 @@ except Exception as e:
     print("More information, please refer to https://github.com/JonathanSalwan/Triton")
     sys.exit(-1)
 
-os.system("tar -xvf peda.tar.gz -c /usr/share/peda")
+os.system("tar -xvf peda.tar.gz -C /usr/share/")
 
 setup(
     name="emulator",
@@ -24,6 +24,7 @@ setup(
     url="https://github.com/Bluekezhou/TritonEmulator",
     packages=find_packages("src"),
     package_dir = { "":"src" },
+    package_data = { "": ["type"] },
     install_requires=[
         'pwntools',
     ],

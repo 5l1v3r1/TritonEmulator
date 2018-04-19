@@ -10,8 +10,6 @@ Descript: A demo to pass the first check
 """
 
 from emulator import *
-from debugger import *
-from utils import *
 import os
 from pwn import u32
 
@@ -106,7 +104,7 @@ class SolveTest(Emulator):
                 # get format addr
                 esp = self.getreg('esp')
                 format_addr = u32(self.getMemory(esp + 4, 4))
-                target_format = "%p-%p-%p-%p-%p-%p"
+                target_format = "%p-%p-%p"
                 for i, v in enumerate(target_format):
                     byteId = Triton.getSymbolicMemoryId(format_addr + i)
                     byteSym = Triton.getSymbolicExpressionFromId(byteId)

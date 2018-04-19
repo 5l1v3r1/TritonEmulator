@@ -36,7 +36,8 @@ class Emulator(object):
         self.symbolize = symbolize
 
         # root directory
-        self.root = sys.path[0]
+        self.root = os.path.dirname(__file__)
+
         self.log = get_logger("Emulator.py")
 
         elf = ELF(open(binary))

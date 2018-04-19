@@ -10,8 +10,6 @@ Descript: A demo to pass the first check
 """
 
 from emulator import *
-from debugger import *
-from utils import *
 import os
 from pwn import u32
 

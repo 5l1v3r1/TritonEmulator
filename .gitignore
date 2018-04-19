@@ -5,4 +5,8 @@ run.sh
 src/emulator.egg-info/
 .gdb_history
 
+example/path_constrains/input
+example/path_constrains/*.txt
+example/sof_exp/*.txt
+
 
