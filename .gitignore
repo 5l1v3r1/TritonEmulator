@@ -1,15 +1,8 @@
-# 去掉.pyc文件
-*.pyc
-
-# IDA tmp file
-bin.*
-
-peda-session-bin.txt
-dump.bin
-core
-nohup.out
-input
-
-peda/
-
+build
+dist
+pydev
+run.sh
+src/emulator.egg-info/
 .gdb_history
+
+

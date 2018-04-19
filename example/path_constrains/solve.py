@@ -106,7 +106,7 @@ class SolveTest(Emulator):
                 # get format addr
                 esp = self.getreg('esp')
                 format_addr = u32(self.getMemory(esp + 4, 4))
-                target_format = "aabbch"
+                target_format = "%p-%p-%p-%p-%p-%p"
                 for i, v in enumerate(target_format):
                     byteId = Triton.getSymbolicMemoryId(format_addr + i)
                     byteSym = Triton.getSymbolicExpressionFromId(byteId)
@@ -124,7 +124,10 @@ class SolveTest(Emulator):
                     index = int(v.getName().replace('SymVar_', ''))
                     data[index] = v.getValue()
                 
-                print ''.join(map(chr, data))
+                with open('input', 'w') as f:
+                    data = ''.join(map(chr, data))
+                    f.write(data)
+
                 return
 
             # pc = self.parse_command(pc)

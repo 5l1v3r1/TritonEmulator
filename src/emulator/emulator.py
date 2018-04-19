@@ -11,16 +11,13 @@ from elftools.elf.elffile import ELFFile as ELF
 import os, sys, stat 
 from triton import TritonContext, ARCH, Instruction, MODE, CALLBACK, OPCODE, MemoryAccess
 import tempfile
-from utils import *
 import subprocess
 import lief
 from pwn import context, asm
+
+# import self-defined class
+from utils import *
 from syscall import *
-
-
-class UnsupportArchException(Exception):
-    def __init__(self, arch):
-        Exception.__init__(self, "Architecture %s is not supported yet" % arch)
 
 
 ###############################################################################
@@ -28,7 +25,7 @@ class UnsupportArchException(Exception):
 ###############################################################################
 class Emulator(object):
 
-    def __init__(self, binary, dumpfile="dump.bin", show=True, symbolize=False):
+    def __init__(self, binary, dumpfile="", show=True, symbolize=False):
         """
         Arguments:
             binary: path to executable binary 
@@ -49,6 +46,9 @@ class Emulator(object):
         if self.arch not in SupportedArch:
             raise UnsupportArchException(self.arch)
 
+        # Prepare syscall hooker
+        self.syshook = Syscall(self.arch)
+
         self.memoryCache = list() 
 
 
@@ -58,7 +58,7 @@ class Emulator(object):
     def snapshot(self):
         os.chmod(self.binary, 0o777)
         _, debug_file = tempfile.mkstemp()
-        peda_path = self.root + '/peda/peda.py'
+        peda_path = "/usr/share/peda/peda.py"
         type_path = self.root + '/type'
         with open(debug_file, 'w') as f:
             content = "source %s\nbreak _start\nstart\nnextcall\nadd-symbol-file %s 0\n%s\ncontinue\nfulldump %s\nquit\n"
@@ -123,12 +123,44 @@ class Emulator(object):
 
 
     """
-    Retrieve data 
+    Retrieve a block of data 
     """
     def getMemory(self, addr, size):
         Triton = self.triton
         s = Triton.getConcreteMemoryAreaValue(addr, size)
         return s
+
+    
+    """
+    Retrieve uint8
+    """
+    def getuint8(self, addr):
+        mem = MemoryAccess(addr, 1)
+        return self.triton.getConcreteMemoryValue(mem)
+
+
+    """
+    Retrieve uint16
+    """
+    def getuint16(self, addr):
+        mem = MemoryAccess(addr, 2)
+        return self.triton.getConcreteMemoryValue(mem)
+
+
+    """
+    Retrieve uint32
+    """
+    def getuint32(self, addr):
+        mem = MemoryAccess(addr, 4)
+        return self.triton.getConcreteMemoryValue(mem)
+
+
+    """
+    Retrieve uint64
+    """
+    def getuint64(self, addr):
+        mem = MemoryAccess(addr, 8)
+        return self.triton.getConcreteMemoryValue(mem)
 
 
     """
@@ -206,6 +238,17 @@ class Emulator(object):
 
 
     """
+    Check whether a specific address is a valid address
+    """
+    def isValid(self, addr):
+
+        for m in self.memoryCache:
+            if addr >= m['start'] and addr < m['start'] + m['size']:
+                return True
+        return False 
+
+
+    """
     Prepare everything before starting emulate
     """
     def initialize(self):
@@ -224,7 +267,11 @@ class Emulator(object):
         # Define internal callbacks.
         Triton.addCallback(self.memoryCaching, CALLBACK.GET_CONCRETE_MEMORY_VALUE)
         
-        self.snapshot()
+        if self.dumpfile == '':
+            # get dumpfile from entry of main()
+            self.dumpfile = '/tmp/dump.bin'
+            self.snapshot()
+
         self.load_dump()
 
 
@@ -291,7 +338,7 @@ class Emulator(object):
         if instruction.getType() in [OPCODE.SYSENTER, OPCODE.INT]:
             if not self.lastInstType not in [OPCODE.SYSENTER, OPCODE.INT]:
                 sysnum, arg1, arg2, arg3 = self.getSyscallRegs()
-                ret = syscall(sysnum, arg1, arg2, arg3, self)
+                ret = self.syshook.syscall(sysnum, arg1, arg2, arg3, self)
                     
                 """
                 ret: True, SYSCALL read
@@ -328,8 +375,3 @@ class Emulator(object):
 
         self.log.info("Emulation done")
         return
-
-if __name__ == '__main__':
-    emulator = Emulator("./bin")
-    emulator.initialize()
-    emulator.start()

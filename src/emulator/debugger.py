@@ -11,15 +11,7 @@ from emulator import Emulator, UnsupportArchException
 from utils import *
 
 
-def connectPycharm(ip, port=4444):
-    try:
-        import sys
-        sys.path.append('/data/pydev')
-        import pydevd
-        pydevd.settrace(ip, port=port, stdoutToServer=True, stderrToServer=True)
-    except Exception as e:
-        print(e)
-        print("failed to load pycharm debugger")
+
 
 
 ###############################################################################
@@ -60,9 +52,8 @@ class Debugger(Emulator):
         if self.arch == 'x86':
             esp = self.getreg('esp')
             for i in range(size):
-                value = self.getMemory(esp+i*4, 4) 
-                from pwn import u32
-                print '0x%x:  ' % (esp+i*4) + hex(u32(value)).strip('L')
+                value = self.getuint32(esp+i*4) 
+                print '0x%x:  ' % (esp+i*4) + hex(value).strip('L')
         else:
             raise UnsupportArchException(self.arch)
 
@@ -109,6 +100,12 @@ class Debugger(Emulator):
                 print 'breapoint at %s is enabled' % hex(addr).strip('L')
             else: 
                 print 'breapoint at %s is disabled' % hex(addr).strip('L')
+
+    """
+    breakpint function
+    """
+    def del_breakpoint(self):
+        pass
 
     """
     self-defined function for command next
