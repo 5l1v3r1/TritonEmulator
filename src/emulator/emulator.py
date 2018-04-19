@@ -20,6 +20,18 @@ from utils import *
 from syscall import *
 
 
+
+###############################################################################
+#                        Instruction Exception                                #
+###############################################################################
+class IllegalPcException(Exception):
+    def __init__(self, arch, pc):
+        if arch == 'x86':
+            Exception.__init__(self, "Eip address [0x%x] is illegal" % pc)
+        else:
+            raise UnsupportArchException(arch)
+
+
 ###############################################################################
 #                                  Main Class                                 #
 ###############################################################################
@@ -200,7 +212,7 @@ class Emulator(object):
         from pwn import u32
         self.setreg('gs', regs['gs'])
         for i in range(7):
-            log.debug('Restore gs[%x]' % i*4)
+            log.debug('Restore gs[0x%x]' % (i*4))
             v = u32(self.getMemory(gs_8 + i*4, 4))
             write_gs = ['mov eax, %s' % hex(v), 'mov gs:[%d], eax' % (i*4)]
             for inst in write_gs:
@@ -342,18 +354,25 @@ class Emulator(object):
                 ret = self.syshook.syscall(sysnum, arg1, arg2, arg3, self)
                     
                 """
-                ret: True, SYSCALL read
+                ret: Number (bytes of read), SYSCALL read
                      False, other SYSCALL
                 """
                 if ret and self.symbolize:
-                    self.log.info("try to symbolize 0x%x, length is %d" % (arg2, arg3))
-                    self.symbolizing(arg2, arg3)              
+                    self.log.info("try to symbolize 0x%x, length is %d" % (arg2, ret))
+                    self.symbolizing(arg2, ret)              
                 
             self.setpc(pc + instruction.getSize())
 
         elif instruction.getType() == OPCODE.HLT:
             self.log.info("Program stopped [call hlt]")
             exit(0)
+        
+        # Deal with instruction exception
+        elif instruction.getType() == OPCODE.RET:
+            new_pc = self.getpc()
+            if not self.isValid(new_pc):
+                self.lastInstType = instruction.getType()
+                raise IllegalPcException(self.arch, new_pc)
         
         self.lastInstType = instruction.getType()
         pc = self.getpc()

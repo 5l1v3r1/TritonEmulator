@@ -22,7 +22,7 @@ class Syscall(object):
 
         self.systable = {}
 
-        hook_syscall = ['read', 'write']
+        hook_syscall = ['read', 'write', 'exit']
         for aSyscall in hook_syscall:
             constant = getattr(SYS, 'SYS_' + aSyscall)
             handler = getattr(self, 'syscall_' + aSyscall)
@@ -50,7 +50,7 @@ class Syscall(object):
             
         emulator.triton.setConcreteMemoryAreaValue(addr, content)
         emulator.setreg('eax', len(content))
-        return True
+        return len(content)
 
 
     def syscall_write(self, fd, addr, length, emulator):
@@ -66,6 +66,11 @@ class Syscall(object):
 
     def syscall_mmap2(self):
         sys.exit(-1)
+
+    def syscall_exit(self, *args):
+        self.log.debug('[SYS_exit] exit(%d)' % args[0])
+        # Maybe it's not a good idea to kill the emulator
+        sys.exit(args[0])
 
 
     def syscall(self, sysnum, *args):

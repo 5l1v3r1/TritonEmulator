@@ -5,14 +5,12 @@
 Module name: Branch Solve Test
 Create by: Bluecake
 Descript: A demo to pass the first check
-
-
 """
 
 from emulator import *
 import os
 from pwn import u32
-
+from triton import OPCODE
 class SolveTest(Debugger):
 
     def __init__(self, binary, show=False, symbolize=True):
@@ -38,11 +36,40 @@ class SolveTest(Debugger):
             os.write(self.write, "\n")
         
         while pc:
-            if not self.isValid(pc): 
-                print "invalid pc address", hex(pc)
-                sys.exit(0)
-            pc = self.parse_command(pc)
 
+            try:
+                pc = self.parse_command(pc)
+
+            except IllegalPcException:
+                if self.lastInstType == OPCODE.RET:
+
+                    Triton = self.triton
+                    astCtxt = Triton.getAstContext()
+
+                    constraint = [Triton.getPathConstraintsAst()]
+
+                    target_pc = 0xdeadbeaf
+                    esp = self.getreg('esp')
+                    print hex(esp)
+                    ret_addr = esp - 4
+                    for i in range(4):
+                        mem_sym = Triton.getSymbolicExpressionFromId(Triton.getSymbolicMemoryId(ret_addr + i))
+                        print mem_sym
+                        mem_ast = mem_sym.getAst()
+                        new_ast = astCtxt.equal(mem_ast, astCtxt.bv(target_pc >> (i*8) & 0xff, 8))
+                        constraint.append(new_ast)
+
+                    print constraint
+                    cstr  = astCtxt.land(constraint)
+
+                    print '[+] Asking for a model, please wait...'
+                    model = Triton.getModel(cstr)
+
+                    # Save new state
+                    for k, v in model.items():
+                        print '[+]', v
+
+                sys.exit(0)
 
         log.info("test1 ended");
 
