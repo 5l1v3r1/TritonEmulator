@@ -2,7 +2,7 @@ import logging
 
 
 """
-Define some basic classes
+Define basic exception class
 """
 class UnsupportArchException(Exception):
     def __init__(self, arch):
@@ -14,7 +14,7 @@ class UnsupportArchException(Exception):
 Define some basic functions
 """
 # gLoglevel = logging.WARN
-gLoglevel = None
+gLoglevel = logging.INFO
 
 def get_logger(module_name, log_level=logging.DEBUG):
     global gLoglevel
@@ -30,6 +30,7 @@ def get_logger(module_name, log_level=logging.DEBUG):
         logger.setLevel(log_level)
     logger.addHandler(console_handler)
     return logger
+
 
 """
 Just for local debug

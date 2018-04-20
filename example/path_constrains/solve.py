@@ -103,7 +103,7 @@ class SolveTest(Emulator):
 
                 # get format addr
                 esp = self.getreg('esp')
-                format_addr = u32(self.getMemory(esp + 4, 4))
+                format_addr = self.getuint32(esp + 4)
                 target_format = "%p-%p-%p"
                 for i, v in enumerate(target_format):
                     byteId = Triton.getSymbolicMemoryId(format_addr + i)

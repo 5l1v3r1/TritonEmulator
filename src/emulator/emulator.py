@@ -14,6 +14,7 @@ import tempfile
 import subprocess
 import lief
 from pwn import context, asm
+import string
 
 # import self-defined class
 from utils import *
@@ -37,7 +38,7 @@ class IllegalPcException(Exception):
 ###############################################################################
 class Emulator(object):
 
-    def __init__(self, binary, dumpfile="", show=True, symbolize=False):
+    def __init__(self, binary, dumpfile="", show=False, symbolize=False, isTaint=False):
         """
         Arguments:
             binary: path to executable binary 
@@ -45,7 +46,19 @@ class Emulator(object):
         self.binary = binary
         self.dumpfile = dumpfile
         self.show = show
+        self.running = True
+
         self.symbolize = symbolize
+        self.isTaint = isTaint
+
+        # list of read info, each member is a pair like (addr, length)
+        self.read_record = []  
+        # total length of read
+        self.readcount = 0
+
+        # list to control which byte should be symbolized or tainted
+        self.symbolized = []
+        self.taintable = []
 
         # root directory
         self.root = os.path.dirname(__file__)
@@ -58,6 +71,9 @@ class Emulator(object):
         SupportedArch = ['x86']
         if self.arch not in SupportedArch:
             raise UnsupportArchException(self.arch)
+        
+        if self.arch == 'x86':
+            context.arch = 'i386'
 
         # Prepare syscall hooker
         self.syshook = Syscall(self.arch)
@@ -69,6 +85,10 @@ class Emulator(object):
     Automatically take memory snapshot on the entrypoint of main()
     """
     def snapshot(self):
+
+        if os.path.exists(self.dumpfile):
+            return 
+
         os.chmod(self.binary, 0o777)
         _, debug_file = tempfile.mkstemp()
         peda_path = "/usr/share/peda/peda.py"
@@ -149,6 +169,7 @@ class Emulator(object):
     """
     def getuint8(self, addr):
         mem = MemoryAccess(addr, 1)
+        self.triton.concretizeMemory(mem)
         return self.triton.getConcreteMemoryValue(mem)
 
 
@@ -157,6 +178,7 @@ class Emulator(object):
     """
     def getuint16(self, addr):
         mem = MemoryAccess(addr, 2)
+        self.triton.concretizeMemory(mem)
         return self.triton.getConcreteMemoryValue(mem)
 
 
@@ -165,6 +187,7 @@ class Emulator(object):
     """
     def getuint32(self, addr):
         mem = MemoryAccess(addr, 4)
+        self.triton.concretizeMemory(mem)
         return self.triton.getConcreteMemoryValue(mem)
 
 
@@ -173,6 +196,7 @@ class Emulator(object):
     """
     def getuint64(self, addr):
         mem = MemoryAccess(addr, 8)
+        self.triton.concretizeMemory(mem)
         return self.triton.getConcreteMemoryValue(mem)
 
 
@@ -196,7 +220,7 @@ class Emulator(object):
         context.arch = 'i386'
 
         # Load memory into memoryCache
-        log.info('Define memory areas')
+        log.debug('Define memory areas')
         for mem in mems:
             start = mem['start']
             end   = mem['end']
@@ -223,7 +247,7 @@ class Emulator(object):
                 Triton.processing(instruction)
 
         # Load registers into the triton
-        log.info('Define registers')
+        log.debug('Define registers')
         for reg, value in regs.items():
             log.debug('Load register ' + reg)
             self.setreg(reg, value)
@@ -265,6 +289,7 @@ class Emulator(object):
     Prepare everything before starting emulate
     """
     def initialize(self):
+
         self.triton = TritonContext()
         Triton = self.triton
 
@@ -326,15 +351,45 @@ class Emulator(object):
     Symbolizing input data
     """
     def symbolizing(self, addr, length, size=1):
+
         for i in range(0, length, size): 
-            mem = MemoryAccess(addr + i, size)
-            self.triton.convertMemoryToSymbolicVariable(mem)
+            if addr + i in self.symbolized:
+                # self.log.info("try to symbolize 0x%x" % (addr + i))
+                print("try to symbolize 0x%x" % (addr + i))
+                mem = MemoryAccess(addr + i, size)
+                self.triton.convertMemoryToSymbolicVariable(mem)
 
 
+    """
+    Tainting input data
+    """
+    def tainting(self, addr, length):
+
+        for i in range(length): 
+            if addr + i in self.taintable:
+                self.triton.taintMemory(addr + i)
+
+
+    """
+    Check whether target data is influenced
+    """
+    def isTainted(self, target):
+
+        for aByte in target:
+            if self.triton.isMemoryTainted(aByte):
+                return True
+
+        return False
+
+    
     """
     Process only an instruction
     """
     def process(self):
+
+        if not self.running:
+            return False
+        
         pc = self.getpc()
         opcode = self.getMemory(pc, 16)
 
@@ -342,11 +397,57 @@ class Emulator(object):
         instruction = Instruction()
         instruction.setOpcode(bytes(opcode))
         instruction.setAddress(pc)
+        
+        Triton = self.triton
+        Triton.disassembly(instruction)
+        
+        
+        inst = Instruction()
+        opcodeCache = {}
+        def instrument(opcode):
+            if not opcodeCache.has_key(opcode):
+                bincode = asm(opcode)
+                inst.setOpcode(bincode)
+                inst.setAddress(0)
+                Triton.processing(inst)
+                opcodeCache[opcode] = bincode
+            else:
+                inst.setOpcode(opcodeCache[opcode])
+                inst.setAddress(0)
+                Triton.processing(inst)
+
+        if instruction.getType() == OPCODE.MOVSD: 
+            """
+            For unknown reason, triton didn't work when meet repeat mov 
+            So I did some patch by hand
+            """
+            ecx = self.getreg('ecx')
+            instrument("push eax")
+            print 'try to patch "rep movsd"'
+            for i in range(ecx):
+                gadgets = ["mov eax, dword ptr [esi]", "mov dword ptr [edi], eax", "add esi, 4", "add edi, 4"]
+                for gadget in gadgets:
+                    instrument(gadget)
+            instrument("pop eax")
+            self.setpc(pc + instruction.getSize())
+            return self.getpc()
+
+        elif instruction.getType() == OPCODE.MOVSB:
+            print 'try to patch "rep movsb"'
+            ecx = self.getreg('ecx')
+            instrument("push eax")
+            for i in range(ecx):
+                gadgets = ["mov al, byte ptr [esi]", "mov byte ptr [edi], al", "add esi, 1", "add edi, 1"]
+                for gadget in gadgets:
+                    instrument(gadget)
+            instrument("pop eax")
+            self.setpc(pc + instruction.getSize())
+            return self.getpc()
 
         # Process
         self.triton.processing(instruction)
         if self.show:
-            print instruction
+            print instruction, instruction.getType(), OPCODE.MOVSD
 
         if instruction.getType() in [OPCODE.SYSENTER, OPCODE.INT]:
             if not self.lastInstType not in [OPCODE.SYSENTER, OPCODE.INT]:
@@ -357,16 +458,23 @@ class Emulator(object):
                 ret: Number (bytes of read), SYSCALL read
                      False, other SYSCALL
                 """
-                if ret and self.symbolize:
-                    self.log.info("try to symbolize 0x%x, length is %d" % (arg2, ret))
-                    self.symbolizing(arg2, ret)              
+                if type(ret) == int and ret > 0:
+
+                    if self.symbolize:
+                        self.symbolizing(arg2, ret)              
+                    
+                    if self.isTaint:
+                        self.tainting(arg2, ret)
+
+                    self.readcount += ret
+                    self.read_record.append((arg2, ret))
                 
             self.setpc(pc + instruction.getSize())
 
         elif instruction.getType() == OPCODE.HLT:
             self.log.info("Program stopped [call hlt]")
             exit(0)
-        
+
         # Deal with instruction exception
         elif instruction.getType() == OPCODE.RET:
             new_pc = self.getpc()

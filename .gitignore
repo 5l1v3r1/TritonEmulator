@@ -3,6 +3,7 @@ dist
 pydev
 run.sh
 src/emulator.egg-info/
+src/emulator/*.pyc
 .gdb_history
 
 example/path_constrains/input

@@ -9,6 +9,7 @@ Description: A debug tool for x86 and x86_64 program emulate
 
 from emulator import Emulator, UnsupportArchException
 from utils import *
+from pwn import disasm
 
 
 ###############################################################################
@@ -20,6 +21,7 @@ class Debugger(Emulator):
         super(Debugger, self).__init__(binary, dumpfile, show, symbolize)
         self.log = get_logger("Debugger.py")
         self.breakpoints = {}
+        self.nextpc = None
         self.stopped = True      # whether to stop at next instruction
         self.last_cmd = ''
 
@@ -71,7 +73,7 @@ class Debugger(Emulator):
         if len(args) == 1:
             addr = int(args[0], 16)
             if self.arch == 'x86':
-                value = self.getMemory(addr, 4) 
+                value = self.getuint32(addr) 
             else:
                 raise UnsupportArchException(self.arch)
 
@@ -98,17 +100,21 @@ class Debugger(Emulator):
             else: 
                 print 'breapoint at %s is disabled' % hex(addr).strip('L')
 
+
     """
     breakpint function
     """
-    def del_breakpoint(self):
-        pass
+    def del_breakpoint(self, cmd):
+        addr = int(cmd.split(' ')[1], 16)
+        self.breakpoints[addr] = False
+
 
     """
     self-defined function for command next
     """
     def next_instruction(self):
         pass
+
 
     """
     self-defined function for command step
@@ -135,6 +141,15 @@ class Debugger(Emulator):
             return False
 
         if self.stopped or check_breakpoint(pc):
+            
+            if self.last_cmd in ['ni', 'c']: 
+                opcode = self.getMemory(pc, 32)
+                lines = disasm(opcode).splitlines()
+                for i in range(5):
+                    line = lines[i]
+                    addr, disasm_code = line[:line.index(":")], line[line.index(":"):]
+                    new_addr = pc + int(addr, 16)
+                    print hex(new_addr) + disasm_code
 
             if check_breakpoint(pc):
                 print 'Breakpoint at ' + hex(pc).strip('L')
@@ -142,11 +157,13 @@ class Debugger(Emulator):
 
             cmd = raw_input("> ").strip('\n')
             if not cmd:
-                while not self.last_cmd:
-                    self.last_cmd = raw_input("> ")
-                cmd = self.last_cmd
-            else:
-                self.last_cmd = cmd
+                if self.last_cmd:
+                    cmd = self.last_cmd
+                else:
+                    while not cmd:
+                        cmd = raw_input("> ").strip('\n')
+                    cmd = new_cmd
+            self.last_cmd = cmd.split(' ')[0]
 
             if cmd.startswith('b ') or cmd.startswith('break '):
                 addr = int(cmd.split(' ')[1], 16)
@@ -156,6 +173,10 @@ class Debugger(Emulator):
             elif cmd in ['continue', 'c']:
                 self.stopped = False
                 return self.process() 
+            
+            elif cmd.startswith('db'):
+                self.del_breakpoint(cmd)
+                return pc
 
             elif cmd in ['listbreak', 'lb']:
                 self.list_breakpoint()
@@ -178,6 +199,7 @@ class Debugger(Emulator):
 
             else:
                 print 'unknown command'
+                return pc
 
         else:
             return self.process()
@@ -198,8 +220,3 @@ class Debugger(Emulator):
             pc = self.parse_command(pc)
         self.log.info("Debugging done")
         return
-
-
-if __name__ == '__main__':
-    debugger = Debugger('./bin', show=True)
-    debugger.debug()

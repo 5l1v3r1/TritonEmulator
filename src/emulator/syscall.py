@@ -69,8 +69,9 @@ class Syscall(object):
 
     def syscall_exit(self, *args):
         self.log.debug('[SYS_exit] exit(%d)' % args[0])
+        emulator.running = True
         # Maybe it's not a good idea to kill the emulator
-        sys.exit(args[0])
+        # sys.exit(args[0])
 
 
     def syscall(self, sysnum, *args):
@@ -78,7 +79,7 @@ class Syscall(object):
 
         if self.systable.has_key(sysnum):
             if self.systable[sysnum]["handler"] != None:
-                log.info('Emulate syscall ' + self.systable[sysnum]["name"])
+                log.debug('Emulate syscall ' + self.systable[sysnum]["name"])
                 return self.systable[sysnum]["handler"](*args) 
             else:
                 log.warn('No support for syscall ' + self.systable[sysnum]["name"])
