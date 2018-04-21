@@ -1,4 +1,5 @@
 import logging
+import hashlib
 
 
 """
@@ -26,6 +27,16 @@ def get_logger(module_name, log_level=logging.DEBUG):
         logger.addHandler(console_handler)
 
     return logger
+
+
+"""
+Generate md5 for file
+"""
+def md5(filename):
+    data = open(filename).read()
+    md5 = hashlib.md5()
+    md5.update(data)
+    return md5.hexdigest()
 
 
 """

@@ -15,6 +15,7 @@ import subprocess
 import lief
 from pwn import context, asm
 import string
+import hashlib
 
 # import self-defined class
 from utils import *
@@ -39,8 +40,7 @@ class IllegalInstException(Exception):
             Exception.__init__(self, "Instruction at [0x%x] is illegal" % pc)
         else:
             raise UnsupportArchException(arch)
-###############################################################################
-#                                  Main Class                                 #
+############################################################################### #                                  Main Class                                 #
 ###############################################################################
 class Emulator(object):
 
@@ -94,6 +94,7 @@ class Emulator(object):
         self.syshook = Syscall(self.arch, log_level=self.log_level)
 
         self.memoryCache = list() 
+        self.src = []
 
         self.opcodeCacheFile = self.root + "/OpcodeCache.txt"
         if os.path.exists(self.opcodeCacheFile):
@@ -337,8 +338,9 @@ class Emulator(object):
         Triton.addCallback(self.memoryCaching, CALLBACK.GET_CONCRETE_MEMORY_VALUE)
         
         if self.dumpfile == '':
+            file_hash = md5(self.binary)            
             # get dumpfile from entry of main()
-            self.dumpfile = '/tmp/dump.bin'
+            self.dumpfile = '/tmp/%s_%s_dump.bin' % (os.path.basename(self.binary), file_hash)
             self.snapshot()
 
         self.load_dump()
@@ -379,6 +381,31 @@ class Emulator(object):
 
     
     """
+    
+    """
+    def set_input(self, data):
+
+        if hasattr(self, 'stdin'):
+            self.stdin += data
+        else:
+            self.stdin = data
+            
+
+    """
+    Generate map of address of memory stored input
+    """
+    def getSrc(self):
+
+        if not self.src:
+            for rc in self.read_record:
+                start = rc[0]
+                length = rc[1]
+                self.src.extend(range(start, start + length))
+
+        return self.src 
+
+    
+    """
     Symbolizing input data
     """
     def symbolizing(self, addr, length, size=1):
@@ -412,7 +439,13 @@ class Emulator(object):
 
         return False
 
-    
+   
+    # """
+    # Callback for syscall read
+    # """
+    # def readaaa(self):
+    #     pass
+
     """
     Process only an instruction
     """

@@ -15,7 +15,7 @@ import logging
 
 class InputSolver(object):
 
-    def __init__(self, binary, src, breakpoint, initInput='', log_level=logging.DEBUG):
+    def __init__(self, binary, src, breakpoint, initInput='A', log_level=logging.DEBUG):
         """
         Argumenst:
             binary, path of binary file
@@ -44,11 +44,8 @@ class InputSolver(object):
                 log_level=self.log_level)
 
         emulator.initialize()
-
         if self.initInput:
-            # create pipe for SYSCALL read
-            emulator.read, emulator.write = os.pipe()
-            os.write(emulator.write, self.initInput + '\n')
+            emulator.set_input(self.initInput)
         
         return emulator
 
@@ -96,8 +93,11 @@ class InputSolver(object):
     """
     def traceMemory(self, dst):
 
-        source = self._traceMemory(self.src, dst)
-        return source
+        if len(self.src) > 0x10:
+            source = self._traceMemory(self.src, dst)
+            return source
+        else:
+            return self.src
 
 
     """
@@ -150,3 +150,18 @@ class InputSolver(object):
             new_input[symbolized[index]] = chr(v.getValue())
         
         return new_input
+
+
+    """
+    Create input stream with solve answer
+    """
+    def createInput(self, answer, blank='a'):
+        
+        inputBuffer = ''
+        for addr in self.src:
+            if answer.has_key(addr):
+                inputBuffer += answer[addr]
+            else:
+                inputBuffer += blank
+
+        return inputBuffer

@@ -38,8 +38,15 @@ class Syscall(object):
         self.log.debug('[SYS_read] fd: %d, addr: 0x%x, length: %x' % (fd, addr, length))
         
         if fd == 0:
-            if hasattr(emulator, 'read'):
-                content = os.read(emulator.read, length) 
+            if hasattr(emulator, 'stdin'):
+
+                if len(emulator.stdin) < length:
+                    content = emulator.stdin.ljust(length, 'A')
+                    emulator.stdin = ''
+
+                else:
+                    content = emulator.stdin[:length]
+                    emulator.stdin = emulator.stdin[length:]
             else:
                 content = raw_input()
                 if len(content) < length and not content.endswith('\n'):
