@@ -8,13 +8,14 @@ Description: Just provide syscall hook methods
 
 import os, sys
 from utils import *
+import logging
 
 
 class Syscall(object):
 
-    def __init__(self, arch):
+    def __init__(self, arch, log_level=logging.DEBUG):
 
-        self.log = get_logger('syscall.py', logging.INFO)
+        self.log = get_logger('syscall.py', log_level)
         if arch == 'x86':
             import i386_syscall as SYS
         else:

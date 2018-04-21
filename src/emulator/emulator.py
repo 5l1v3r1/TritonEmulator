@@ -38,11 +38,14 @@ class IllegalPcException(Exception):
 ###############################################################################
 class Emulator(object):
 
-    def __init__(self, binary, dumpfile="", show=False, symbolize=False, isTaint=False):
+    def __init__(self, binary, dumpfile="", show=False, 
+            symbolize=False, isTaint=False, log_level=logging.DEBUG):
+
         """
         Arguments:
             binary: path to executable binary 
         """
+
         self.binary = binary
         self.dumpfile = dumpfile
         self.show = show
@@ -62,8 +65,7 @@ class Emulator(object):
 
         # root directory
         self.root = os.path.dirname(__file__)
-
-        self.log = get_logger("Emulator.py")
+        self.log = get_logger("Emulator.py", log_level)
 
         elf = ELF(open(binary))
         self.arch = elf.get_machine_arch()
@@ -79,6 +81,22 @@ class Emulator(object):
         self.syshook = Syscall(self.arch)
 
         self.memoryCache = list() 
+
+        self.opcodeCacheFile = self.root + "/OpcodeCache.txt"
+        if os.path.exists(self.opcodeCacheFile):
+            with open(self.opcodeCacheFile) as f:
+                self.opcodeCache = eval(f.read())
+        else:
+            self.opcodeCache = {}
+
+
+    """
+    Save opcodeCache to opcodeCacheFile
+    """
+    def __del__(self):
+
+        with open(self.opcodeCacheFile, 'wb') as f:
+            f.write(repr(self.opcodeCache))
 
 
     """
@@ -403,16 +421,15 @@ class Emulator(object):
         
         
         inst = Instruction()
-        opcodeCache = {}
         def instrument(opcode):
-            if not opcodeCache.has_key(opcode):
+            if not self.opcodeCache.has_key(opcode):
                 bincode = asm(opcode)
                 inst.setOpcode(bincode)
                 inst.setAddress(0)
                 Triton.processing(inst)
-                opcodeCache[opcode] = bincode
+                self.opcodeCache[opcode] = bincode
             else:
-                inst.setOpcode(opcodeCache[opcode])
+                inst.setOpcode(self.opcodeCache[opcode])
                 inst.setAddress(0)
                 Triton.processing(inst)
 
@@ -423,7 +440,7 @@ class Emulator(object):
             """
             ecx = self.getreg('ecx')
             instrument("push eax")
-            print 'try to patch "rep movsd"'
+            self.log.debug('try to patch "rep movsd"')
             for i in range(ecx):
                 gadgets = ["mov eax, dword ptr [esi]", "mov dword ptr [edi], eax", "add esi, 4", "add edi, 4"]
                 for gadget in gadgets:
@@ -433,7 +450,7 @@ class Emulator(object):
             return self.getpc()
 
         elif instruction.getType() == OPCODE.MOVSB:
-            print 'try to patch "rep movsb"'
+            self.log.debug('try to patch "rep movsb"')
             ecx = self.getreg('ecx')
             instrument("push eax")
             for i in range(ecx):

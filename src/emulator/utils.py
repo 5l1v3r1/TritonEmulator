@@ -13,9 +13,6 @@ class UnsupportArchException(Exception):
 """
 Define some basic functions
 """
-# gLoglevel = logging.WARN
-gLoglevel = logging.INFO
-
 def get_logger(module_name, log_level=logging.DEBUG):
     global gLoglevel
 
@@ -24,11 +21,10 @@ def get_logger(module_name, log_level=logging.DEBUG):
     console_handler.setFormatter(logging.Formatter(fmt))
     logger = logging.getLogger(module_name)
    
-    if gLoglevel:
-        logger.setLevel(gLoglevel)
-    else:
-        logger.setLevel(log_level)
-    logger.addHandler(console_handler)
+    logger.setLevel(log_level)
+    if not logger.handlers:
+        logger.addHandler(console_handler)
+
     return logger
 
 
