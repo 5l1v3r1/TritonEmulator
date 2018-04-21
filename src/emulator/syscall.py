@@ -57,7 +57,9 @@ class Syscall(object):
     def syscall_write(self, fd, addr, length, emulator):
         self.log.debug('[SYS_write] fd: %d, addr: 0x%x, length: %x' % (fd, addr, length))
         content = emulator.getMemory(addr, length)
-        os.write(fd, content)
+        if emulator.show_output:
+            os.write(fd, content)
+
         emulator.setreg('eax', len(content))
         return False
 

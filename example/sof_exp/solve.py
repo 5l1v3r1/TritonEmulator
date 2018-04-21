@@ -8,6 +8,7 @@ Description : A simple test for class Exploiter
 """
 
 from emulator import *
+import logging
 
 class Solver:
 
@@ -17,12 +18,16 @@ class Solver:
 
 
     def run(self):
-        exp = Exploiter(self.binary, self.crash)
+        exp = Exploiter(self.binary, self.crash, log_level=logging.INFO)
         if exp.getCrashType() == crash.CONTROL_PC:
             src = exp.getCrashMemory()
-            target = [0xde, 0xed, 0xbe, 0xaf]
-            new_src = exp.solveValue(src, target)
+            target = 0xdeadbeaf
+            new_src = exp.pcPayload(target)
+            new_input = exp.createInput(new_src)
             print new_src
+            with open('eip.in', 'wb') as f:
+                f.write(new_input)
+            print new_input
 
         elif exp.getCrashType() == crash.SHELLCODE:
             pass

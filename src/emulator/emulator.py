@@ -33,13 +33,24 @@ class IllegalPcException(Exception):
             raise UnsupportArchException(arch)
 
 
+class IllegalInstException(Exception):
+    def __init__(self, arch, pc):
+        if arch == 'x86':
+            Exception.__init__(self, "Instruction at [0x%x] is illegal" % pc)
+        else:
+            raise UnsupportArchException(arch)
 ###############################################################################
 #                                  Main Class                                 #
 ###############################################################################
 class Emulator(object):
 
-    def __init__(self, binary, dumpfile="", show=False, 
-            symbolize=False, isTaint=False, log_level=logging.DEBUG):
+    def __init__(self, binary, 
+            dumpfile="", 
+            show_inst=False, 
+            show_output = True,
+            symbolize=False, 
+            isTaint=False, 
+            log_level=logging.DEBUG):
 
         """
         Arguments:
@@ -48,7 +59,8 @@ class Emulator(object):
 
         self.binary = binary
         self.dumpfile = dumpfile
-        self.show = show
+        self.show_inst = show_inst
+        self.show_output = show_output
         self.running = True
 
         self.symbolize = symbolize
@@ -65,6 +77,7 @@ class Emulator(object):
 
         # root directory
         self.root = os.path.dirname(__file__)
+        self.log_level = log_level
         self.log = get_logger("Emulator.py", log_level)
 
         elf = ELF(open(binary))
@@ -78,7 +91,7 @@ class Emulator(object):
             context.arch = 'i386'
 
         # Prepare syscall hooker
-        self.syshook = Syscall(self.arch)
+        self.syshook = Syscall(self.arch, log_level=self.log_level)
 
         self.memoryCache = list() 
 
@@ -463,7 +476,7 @@ class Emulator(object):
 
         # Process
         self.triton.processing(instruction)
-        if self.show:
+        if self.show_inst:
             print instruction, instruction.getType(), OPCODE.MOVSD
 
         if instruction.getType() in [OPCODE.SYSENTER, OPCODE.INT]:
