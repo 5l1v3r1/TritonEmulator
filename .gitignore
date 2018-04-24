@@ -1,5 +1,6 @@
 build
 dist
+peda
 pydev
 run.sh
 src/emulator.egg-info/
@@ -9,5 +10,18 @@ src/emulator/*.pyc
 example/path_constrains/input
 example/path_constrains/*.txt
 example/sof_exp/*.txt
+example/pwn3/bin.*
+example/pwn3/*.txt
+example/pwn3/nohup.out
+example/pwn3/*.pyc
+example/pwn3/debug
+example/pwn3/emulator
+example/pwn3/gdbserver
+example/pwn3/bin_stripped
+example/primepwn
+
+
+
+
 
 

@@ -18,12 +18,14 @@ class Syscall(object):
         self.log = get_logger('syscall.py', log_level)
         if arch == 'x86':
             import i386_syscall as SYS
+        elif arch == 'x64':
+            import amd64_syscall as SYS
         else:
             raise UnsupportArchException(arch)
 
         self.systable = {}
 
-        hook_syscall = ['read', 'write', 'exit']
+        hook_syscall = ['alarm', 'exit', 'exit_group', 'read', 'write', ]
         for aSyscall in hook_syscall:
             constant = getattr(SYS, 'SYS_' + aSyscall)
             handler = getattr(self, 'syscall_' + aSyscall)
@@ -33,10 +35,43 @@ class Syscall(object):
             if SYSCALL.startswith('SYS_') and not self.systable.has_key(int(value)):
                 self.systable[int(value)] = {"handler": None, "name": str(value)}
 
+    
+    def syscall_alarm(self, seconds, *args):
+        # No implementation yet
+        return 0, 'alarm'
 
-    def syscall_read(self, fd, addr, length, emulator): 
+
+    def syscall_execve(self):
+        # No implementation yet
+        return 0, 'execve'
+
+
+    def syscall_exit(self, *args):
+        self.log.debug('[SYS_exit] exit(%d)' % args[0])
+        emulator = args[-1]
+        emulator.running = False
+        emulator.setpc(0)
+        return 0, 'exit'
+
+
+    def syscall_exit_group(self, *args):
+        self.log.debug('[SYS_exit] exit_group(%d)' % args[0])
+        emulator = args[-1]
+        emulator.running = False
+        emulator.setpc(0)
+        return 0 , 'exit_group'
+
+
+    def syscall_mmap2(self):
+        # No implementation yet
+        return 0, 'mmap2'
+
+
+    def syscall_read(self, fd, addr, length, *args): 
+
         self.log.debug('[SYS_read] fd: %d, addr: 0x%x, length: %x' % (fd, addr, length))
-        
+        emulator = args[-1] 
+
         if fd == 0:
             if hasattr(emulator, 'stdin'):
 
@@ -58,30 +93,18 @@ class Syscall(object):
             
         emulator.triton.setConcreteMemoryAreaValue(addr, content)
         emulator.setreg('eax', len(content))
-        return len(content)
+        return len(content), 'read'
 
 
-    def syscall_write(self, fd, addr, length, emulator):
+    def syscall_write(self, fd, addr, length, *args):
+
         self.log.debug('[SYS_write] fd: %d, addr: 0x%x, length: %x' % (fd, addr, length))
+        emulator = args[-1] 
         content = emulator.getMemory(addr, length)
-        if emulator.show_output:
-            os.write(fd, content)
 
+        emulator.write(fd, content)
         emulator.setreg('eax', len(content))
-        return False
-
-
-    def syscall_execve(self):
-        sys.exit(-1)
-
-    def syscall_mmap2(self):
-        sys.exit(-1)
-
-    def syscall_exit(self, *args):
-        self.log.debug('[SYS_exit] exit(%d)' % args[0])
-        emulator.running = True
-        # Maybe it's not a good idea to kill the emulator
-        # sys.exit(args[0])
+        return len(content), 'write'
 
 
     def syscall(self, sysnum, *args):
@@ -93,8 +116,8 @@ class Syscall(object):
                 return self.systable[sysnum]["handler"](*args) 
             else:
                 log.warn('No support for syscall ' + self.systable[sysnum]["name"])
-                return False
+                return False, self.systable[sysnum]["name"]
         else:
             log.warn('Unknown syscall ' + str(sysnum))
-            return False
+            return False, "unk_syscall"
 

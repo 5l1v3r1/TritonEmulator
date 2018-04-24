@@ -10,6 +10,7 @@ Description: A debug tool for x86 and x86_64 program emulate
 from emulator import Emulator, UnsupportArchException
 from utils import *
 from pwn import disasm
+import logging
 
 
 ###############################################################################
@@ -17,9 +18,14 @@ from pwn import disasm
 ###############################################################################
 class Debugger(Emulator):
 
-    def __init__(self, binary, dumpfile='', show=True, symbolize=False):
-        super(Debugger, self).__init__(binary, dumpfile, show, symbolize)
-        self.log = get_logger("Debugger.py")
+    def __init__(self, binary, log_level=logging.DEBUG):
+
+        super(Debugger, self).__init__(binary, log_level=log_level)
+        
+        self.show_inst = True
+        self.show_output = True
+        
+        self.log = get_logger("Debugger.py", log_level)
         self.breakpoints = {}
         self.nextpc = None
         self.stopped = True      # whether to stop at next instruction
@@ -32,12 +38,13 @@ class Debugger(Emulator):
     def show_register(self):
         if self.arch == 'x86':
             reg_list = ['eax', 'ebx', 'ecx', 'edx', 'edi', 'esi', 'ebp', 'esp', 'eip']
+
+        elif self.arch == 'x64':
+            reg_list = ['rax', 'rbx', 'rcx', 'rdx', 'rdi', 'rsi', 'rbp', 'rsp', 
+                'rip', 'r8', 'r9', 'r10', 'r11', 'r12', 'r13', 'r14']
+
         else:
             raise UnsupportArchException(self.arch)
-        
-        # elif Triton.getArchitecture() == ARCH.X86_64:
-        #     reg_list = ['rax', 'rbx', 'rcx', 'rdx', 'rdi', 'rsi', 'rbp', 'rsp', 
-        #         'rip', 'r8', 'r9', 'r10', 'r11', 'r12', 'r13', 'r14']
 
         for reg in reg_list:
             value = self.getreg(reg) 
@@ -53,6 +60,13 @@ class Debugger(Emulator):
             for i in range(size):
                 value = self.getuint32(esp+i*4) 
                 print '0x%x:  ' % (esp+i*4) + hex(value).strip('L')
+
+        elif self.arch == 'x64':
+            rsp = self.getreg('rsp')
+            for i in range(size):
+                value = self.getuint64(rsp+i*8) 
+                print '0x%x:  ' % (rsp+i*8) + hex(value).strip('L')
+
         else:
             raise UnsupportArchException(self.arch)
 
@@ -67,21 +81,26 @@ class Debugger(Emulator):
     self-defined function for command x
     """
     def memory_x(self, cmd):
+
         Triton = self.triton
-    
         args = cmd.split(' ')[1:]
+
         if len(args) == 1:
+
             addr = int(args[0], 16)
             if self.arch == 'x86':
                 value = self.getuint32(addr) 
+
             else:
                 raise UnsupportArchException(self.arch)
 
             print '0x%x:  ' % addr + hex(value).strip('L')
+
         elif len(args) == 2 and args[1] == '-s':
+
             addr = int(args[0], 16)
             content = self.getMemoryString(addr)
-            print '0x%x: %s' % (addr, content) 
+            print '0x%x: "%s"' % (addr, content) 
 
     
     """
@@ -127,12 +146,14 @@ class Debugger(Emulator):
     Parse user_input command and stop at breakpoints
     Probably like a debugger
     """
-    def parse_command(self, pc):
+    def parse_command(self):
         """
         Arguments
             pc: current pc address
             handler: process an instruction, argument is pc address.
         """
+        pc = self.getpc()
+
         def check_breakpoint(pc):
             if not self.breakpoints.has_key(pc):
                 return False
@@ -143,6 +164,10 @@ class Debugger(Emulator):
         if self.stopped or check_breakpoint(pc):
             
             if self.last_cmd in ['ni', 'c']: 
+                print '-'* 25 + ' register ' + '-'*25
+                self.show_register()
+
+                print '-'* 25 + '   code   ' + '-'*25
                 opcode = self.getMemory(pc, 32)
                 lines = disasm(opcode).splitlines()
                 for i in range(5):
@@ -150,6 +175,9 @@ class Debugger(Emulator):
                     addr, disasm_code = line[:line.index(":")], line[line.index(":"):]
                     new_addr = pc + int(addr, 16)
                     print hex(new_addr) + disasm_code
+
+                print '-'* 25 + '   stack  ' + '-'*25
+                self.show_stack()
 
             if check_breakpoint(pc):
                 print 'Breakpoint at ' + hex(pc).strip('L')

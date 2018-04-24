@@ -10,6 +10,10 @@ class UnsupportArchException(Exception):
         Exception.__init__(self, "Architecture %s is not supported yet" % arch)
 
 
+class NotImplementedException(Exception):
+    def __init__(self, arch):
+        Exception.__init__(self, "Sorry, this part is not implemented yet")
+
 ##############################################################################
 """
 Define some basic functions
