@@ -18,6 +18,10 @@ example/pwn3/debug
 example/pwn3/emulator
 example/pwn3/gdbserver
 example/pwn3/bin_stripped
+example/pwn3/input1
+example/pwn3/code_coverage_crackme_xor.py
+example/pwn3/input2
+example/pwn3/test.py
 example/primepwn
 
 

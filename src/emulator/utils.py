@@ -34,6 +34,17 @@ def get_logger(module_name, log_level=logging.DEBUG):
 
 
 """
+Print debug information 
+"""
+def title(msg, obj=None, length=70, fill='='):
+    msg = ' ' + msg + ' '
+    msg = fill * ((length-len(msg))/2) + msg
+    print msg.ljust(length, fill)
+    if obj != None:
+        print obj
+
+
+"""
 Generate md5 for file
 """
 def md5(filename):

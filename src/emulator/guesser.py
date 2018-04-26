@@ -91,7 +91,25 @@ class Guesser(Debugger):
         self.show_inst = False
         self.show_output = False
         self.log = get_logger('guesser.py', log_level)
+       
+        bin_root = os.path.dirname(os.path.abspath('./bin'))
+        config_file = bin_root + '/function_config.txt'
+        if os.path.exists(config_file):
+            data = open(config_file).read()
+            self.func_info, self.call_info = eval(data)
+        else:
+            self.call_info = {}  # store which function is called
+            self.func_info = {}  # store which it is in
+        
 
+    """
+    Store function information info file
+    """
+    def __del__(self):
+        config = (self.func_info, self.call_info)
+        bin_root = os.path.dirname(os.path.abspath('./bin'))
+        config_file = bin_root + '/function_config.txt'
+        open(config_file, 'wb').write(repr(config))
 
     """
     Set arguments in the given stack
@@ -155,6 +173,7 @@ class Guesser(Debugger):
         depth = 0
         self.setpc(entry)
         pc = self.getpc()
+
         while pc:
             pc = self.process()
 
@@ -195,14 +214,19 @@ class Guesser(Debugger):
                 % (entry, repr(sample['input']))                )
         return True
 
+
     """
     Export:
-        Speculate the real function with entry of unknown function
+        Speculate the real function with entry of an unknown function
     """
     def guessFunc(self, entry):
 
+        if self.func_info.has_key(entry):
+            return self.func_info[entry]
+
         for functype in func_table:
             if self.tryFunc(entry, functype):
+                self.func_info[entry] = functype
                 return functype
         
         return FUNCTYPE.FUNC_unk
@@ -213,10 +237,16 @@ class Guesser(Debugger):
         Speculate the real called function, like call 0x804831(atoi)
     """
     def guessCall(self, pc):
+        
+        if self.call_info.has_key(pc):
+            return self.call_info[pc]
+
         self.setpc(pc)
         self.process()
         entry = self.getpc()
-        return self.guessFunc(entry)
+        functype = self.guessFunc(entry)
+        self.call_info[pc] = functype
+        return functype
 
 
 if __name__ == '__main__':

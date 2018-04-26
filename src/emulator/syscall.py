@@ -71,7 +71,8 @@ class Syscall(object):
 
         self.log.debug('[SYS_read] fd: %d, addr: 0x%x, length: %x' % (fd, addr, length))
         emulator = args[-1] 
-
+        
+        # title('read called', (fd, addr, length))
         if fd == 0:
             if hasattr(emulator, 'stdin'):
 

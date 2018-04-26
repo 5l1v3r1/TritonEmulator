@@ -8,7 +8,7 @@ Description: A tool for x86 and x86_64 program emulate
 """
 
 import os, sys, stat 
-from triton import TritonContext, ARCH, Instruction, MODE, CALLBACK, OPCODE, MemoryAccess
+from triton import * 
 import tempfile
 import subprocess
 import lief
@@ -77,15 +77,12 @@ class Emulator(object):
         self.symbolize = False
         self.isTaint = False
 
-        self.running = True
-        # list of read info, each member is a pair like (addr, length)
-        self.read_record = []  
         # total length of read
         self.readcount = 0
 
         # list to control which byte should be symbolized or tainted
-        self.symbolized = []
-        self.taintable = []
+        self.symbolize_list = []
+        self.taint_list = []
 
         # root directory
         self.root = os.path.dirname(__file__)
@@ -111,7 +108,6 @@ class Emulator(object):
         self.syshook = Syscall(self.arch, log_level=self.log_level)
 
         self.memoryCache = list() 
-        self.src = []
 
         self.opcodeCacheUpdate = False
         self.opcodeCacheFile = self.root + "/OpcodeCache.txt"
@@ -123,6 +119,7 @@ class Emulator(object):
 
         self.memAccessCheck = True
 
+        self.running = True
         self.SyscallFail = False
         # last pc address
         self.last_pc = 0
@@ -593,17 +590,11 @@ class Emulator(object):
             
 
     """
-    Generate map of address of memory stored input
+    Retrun total length of input bytes
     """
-    def getSrc(self):
+    def getInputLen(self):
 
-        if not self.src:
-            for rc in self.read_record:
-                start = rc[0]
-                length = rc[1]
-                self.src.extend(range(start, start + length))
-
-        return self.src 
+        return self.readcount
 
     
     """
@@ -612,9 +603,9 @@ class Emulator(object):
     def symbolizing(self, addr, length, size=1):
 
         for i in range(0, length, size): 
-            if addr + i in self.symbolized:
-                # self.log.info("try to symbolize 0x%x" % (addr + i))
-                print("try to symbolize 0x%x" % (addr + i))
+            if self.readcount + i in self.symbolize_list or hasattr(self, 'ForceSymbolize'):
+
+                self.log.debug("try to symbolize 0x%x" % (addr + i))
                 mem = MemoryAccess(addr + i, size)
                 self.triton.convertMemoryToSymbolicVariable(mem)
 
@@ -623,20 +614,26 @@ class Emulator(object):
     Tainting input data
     """
     def tainting(self, addr, length):
-
+        
         for i in range(length): 
-            if addr + i in self.taintable:
+            if self.readcount + i in self.taint_list:
+                # title('tainting', i)
                 self.triton.taintMemory(addr + i)
 
 
     """
     Check whether target data is influenced
+    @param target: memory address list or register
     """
     def isTainted(self, target):
 
-        for aByte in target:
-            if self.triton.isMemoryTainted(aByte):
-                return True
+        if type(target) == type(self.triton.registers.eax):
+            return isRegisterTainted(target)
+
+        else:
+            for aByte in target:
+                if self.triton.isMemoryTainted(aByte):
+                    return True
 
         return False
 
@@ -650,6 +647,11 @@ class Emulator(object):
             return False
         
         pc = self.getpc()
+
+        if not self.isValid(pc):
+            self.running = False
+            return False
+
 
         if pc == self.last_pc:
             self.inst_loop += 1
@@ -747,9 +749,10 @@ class Emulator(object):
                     
                     if self.isTaint:
                         self.tainting(arg2, ret)
-
+                    
+                    # title('ret', ret)
+                    # title('readcount', self.readcount)
                     self.readcount += ret
-                    self.read_record.append((arg2, ret))
 
                 elif ret == False:
                     self.SyscallFail = True
@@ -759,6 +762,7 @@ class Emulator(object):
 
         elif instruction.getType() == OPCODE.HLT:
             self.log.info("Program stopped [call hlt]")
+            self.running = False
             self.setpc(0)
 
         # Deal with instruction exception
