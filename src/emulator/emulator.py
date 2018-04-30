@@ -644,13 +644,7 @@ class Emulator(object):
             return False
         
         pc = self.getpc()
-
-        if not self.isValid(pc):
-            self.running = False
-            return False
-
         self.inst_count += 1
-
         if pc == self.last_pc:
             self.inst_loop += 1
             """
@@ -764,7 +758,9 @@ class Emulator(object):
             self.setpc(0)
 
         # Deal with instruction exception
-        elif instruction.getType() == OPCODE.RET:
+        elif instruction.getType() == OPCODE.RET \
+                or instruction.getType() == OPCODE.CALL:
+
             new_pc = self.getpc()
             if not self.isValid(new_pc):
                 self.lastInstType = instruction.getType()

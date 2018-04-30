@@ -147,10 +147,6 @@ class Fuzzer(object):
         
         emulator.ForceSymbolize = True
         while pc:
-            if pc == 0x08048AF8:
-                title('find it', (pc, seed))
-                emulator.parse_command()
-                sys.exit()
             # self.analyse(emulator, pc, seed)
             # pc = self.parse_command()
             pc = emulator.process()
@@ -175,18 +171,19 @@ class Fuzzer(object):
                         answer[index] = chr(v.getValue())
 
                     if answer:
-                        title('answer', answer)
                         self.solver.set_input(seed, emulator.readcount)
                         new_seed = self.solver.createInput(answer)
                         if branch['dstAddr'] in self.branch_choosen:
                             self.boring_seeds.append(new_seed)
                         else:
+                            title('insteresting seed', (branch['dstAddr'], answer))
                             self.interesting_seeds.append(new_seed)
                 else:
                     self.branch_choosen.append(branch['dstAddr'])
     
     def initEmulator(self):
-        emulator = Emulator(self.binary, log_level = self.log_level)
+        # emulator = Emulator(self.binary, log_level = self.log_level)
+        emulator = Debugger(self.binary, log_level = self.log_level)
         emulator.show_inst = False
         emulator.show_output = False
         return emulator
@@ -204,6 +201,7 @@ class Fuzzer(object):
 
             title('intererting', self.interesting_seeds)
             title('boring', self.boring_seeds)
+            title('branch_choosen', self.branch_choosen)
             
             seeds = self.interesting_seeds
             self.interesting_seeds = []
@@ -215,5 +213,9 @@ class Fuzzer(object):
             title('boring', self.boring_seeds)
 
             seeds = self.interesting_seeds + self.boring_seeds
-        title('seeds', seeds)
+            title('seeds', seeds)
+            title('branch_choosen', self.branch_choosen)
+
+        title('tried_seed', self.tried_seed)
+        
 
