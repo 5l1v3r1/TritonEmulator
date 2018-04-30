@@ -12,6 +12,7 @@ except Exception as e:
     sys.exit(-1)
 
 os.system("tar -xvf peda.tar.gz -C /usr/share/")
+open('/root/.pwntools-cache/update', 'wb').write('never')
 
 setup(
     name="emulator",

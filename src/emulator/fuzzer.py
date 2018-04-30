@@ -129,8 +129,11 @@ class Fuzzer(object):
 
     def explorer(self, emulator, seed):
         
+        if seed in self.tried_seed:
+            return
+
+        self.tried_seed.append(seed)
         title('seed', seed)
-        inputs = []
 
         emulator.initialize()
         emulator.symbolize = True
@@ -144,7 +147,11 @@ class Fuzzer(object):
         
         emulator.ForceSymbolize = True
         while pc:
-            self.analyse(emulator, pc, seed)
+            if pc == 0x08048AF8:
+                title('find it', (pc, seed))
+                emulator.parse_command()
+                sys.exit()
+            # self.analyse(emulator, pc, seed)
             # pc = self.parse_command()
             pc = emulator.process()
         
@@ -177,8 +184,6 @@ class Fuzzer(object):
                             self.interesting_seeds.append(new_seed)
                 else:
                     self.branch_choosen.append(branch['dstAddr'])
-
-        return inputs
     
     def initEmulator(self):
         emulator = Emulator(self.binary, log_level = self.log_level)
@@ -187,18 +192,28 @@ class Fuzzer(object):
         return emulator
 
     def fuzz(self):
-        emulator = self.initEmulator()
-        self.explorer(emulator, 'A')
-        title('intererting', self.interesting_seeds)
-        title('boring', self.boring_seeds)
+        seeds = ['A']
         
-        seeds = self.interesting_seeds
-        self.interesting_seeds = []
-        for seed in seeds:
-            emulator = self.initEmulator()
-            self.explorer(emulator, seed)
+        for i in range(3):
+            self.interesting_seeds = []
+            self.boring_seeds = []
 
-        title('intererting', self.interesting_seeds)
-        title('boring', self.boring_seeds)
-        
+            for seed in seeds:
+                emulator = self.initEmulator()
+                self.explorer(emulator, seed)
+
+            title('intererting', self.interesting_seeds)
+            title('boring', self.boring_seeds)
+            
+            seeds = self.interesting_seeds
+            self.interesting_seeds = []
+            for seed in seeds:
+                emulator = self.initEmulator()
+                self.explorer(emulator, seed)
+
+            title('intererting', self.interesting_seeds)
+            title('boring', self.boring_seeds)
+
+            seeds = self.interesting_seeds + self.boring_seeds
+        title('seeds', seeds)
 
