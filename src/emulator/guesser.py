@@ -92,10 +92,10 @@ class Guesser(Debugger):
         self.show_output = False
         self.log = get_logger('guesser.py', log_level)
        
-        bin_root = os.path.dirname(os.path.abspath('./bin'))
-        config_file = bin_root + '/function_config.txt'
-        if os.path.exists(config_file):
-            data = open(config_file).read()
+        bin_root = os.path.dirname(os.path.abspath(binary))
+        self.config_file = bin_root + '/functions.txt'
+        if os.path.exists(self.config_file):
+            data = open(self.config_file).read()
             self.func_info, self.call_info = eval(data)
         else:
             self.call_info = {}  # store which function is called
@@ -107,9 +107,7 @@ class Guesser(Debugger):
     """
     def __del__(self):
         config = (self.func_info, self.call_info)
-        bin_root = os.path.dirname(os.path.abspath('./bin'))
-        config_file = bin_root + '/function_config.txt'
-        open(config_file, 'wb').write(repr(config))
+        open(self.config_file, 'wb').write(repr(config))
 
     """
     Set arguments in the given stack

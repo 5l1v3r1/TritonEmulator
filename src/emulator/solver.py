@@ -29,8 +29,19 @@ class InputSolver(object):
         self.init_input = ''
         self.log_level = log_level
         self.log = get_logger("solver.py", log_level) 
-        self.track_record = {}
 
+        bin_root = os.path.dirname(os.path.abspath(binary))
+        self.config_file = bin_root + '/track_record.txt'
+        if os.path.exists(self.config_file):
+            data = open(self.config_file).read()
+            self.track_record = eval(data)
+        else:
+            self.track_record = {}
+
+
+    def __del__(self):
+        open(self.config_file, 'wb').write(repr(self.track_record))
+        
     
     def set_input(self, init_input, input_len):
         self.input_len = input_len
@@ -57,7 +68,18 @@ class InputSolver(object):
             emulator.set_input(self.init_input)
         
         return emulator
+    
 
+
+    def run2breakpoint(self, emulator):
+
+        pc = emulator.getpc()
+        breakaddr, inst_count = self.breakpoint
+
+        while True:
+            if pc == breakaddr and emulator.inst_count == inst_count:
+                break
+            pc = emulator.process()
 
     """
     Inner method for traceMemory
@@ -77,15 +99,7 @@ class InputSolver(object):
         # title('[1]emulator.stdin', emulator.stdin.encode('hex'))
         emulator.taint_list = left
 
-        pc = emulator.getpc()
-        breakaddr, breakcount = self.breakpoint
-
-        while True:
-            if pc == breakaddr:
-                breakcount -= 1
-                if breakcount == 0:
-                    break
-            pc = emulator.process()
+        self.run2breakpoint(emulator) 
 
         if type(dst) == str:
             Triton = emulator.triton
@@ -99,20 +113,12 @@ class InputSolver(object):
         emulator = self.initEmulator(isTaint=True)
         # title('[2]emulator.stdin', emulator.stdin.encode('hex'))
         emulator.taint_list = right
+        self.run2breakpoint(emulator)
 
         if type(dst) == str:
             Triton = emulator.triton
             dst = eval('Triton.registers.' + dst)
 
-        pc = emulator.getpc()
-        breakaddr, breakcount = self.breakpoint
-
-        while True:
-            if pc == breakaddr:
-                breakcount -= 1
-                if breakcount == 0:
-                    break
-            pc = emulator.process()
             
         if emulator.isTainted(dst):
             new_right = self._traceMemory(right, dst)
@@ -129,8 +135,7 @@ class InputSolver(object):
         title('traceMemory', dst)
         title('input_len', self.input_len)
         src = range(self.input_len)
-        # if self.input_len > 0x10: # inputs length is less than 0x10, it's not necessary to track
-        if self.input_len > 0: # inputs length is less than 0x10, it's not necessary to track
+        if self.input_len > 0x10: # inputs length is less than 0x10, it's not necessary to track
             source = self._traceMemory(src, dst)
             return source
 
@@ -174,16 +179,7 @@ class InputSolver(object):
         title('start solve')
         emulator = self.initEmulator(symbolize=True)
         emulator.symbolize_list = symbolize_list
-
-        pc = emulator.getpc()
-        breakaddr, breakcount = self.breakpoint
-
-        while True:
-            if pc == breakaddr:
-                breakcount -= 1
-                if breakcount == 0:
-                    break
-            pc = emulator.process()
+        self.run2breakpoint(emulator)
          
         Triton = emulator.triton
         astCtxt = Triton.getAstContext()
@@ -215,31 +211,20 @@ class InputSolver(object):
     """ 
     def solveRegister(self, reg, value):
         
-        if self.track_record.has_key((self.breakpoint, self.input_len)):
-            symbolize_list = self.track_record[(self.breakpoint, self.input_len)]
+        if self.track_record.has_key(self.breakpoint):
+            symbolize_list = self.track_record[self.breakpoint]
 
         else:
             symbolize_list = self.traceMemory(reg)
             if not symbolize_list:
                 return False
-            self.track_record[(self.breakpoint, self.input_len)] = symbolize_list
+            self.track_record[self.breakpoint] = symbolize_list
 
         emulator = self.initEmulator(symbolize=True)
         emulator.symbolize_list = symbolize_list
 
-        Triton = emulator.triton
+        self.run2breakpoint(emulator)
 
-
-        pc = emulator.getpc()
-        breakaddr, breakcount = self.breakpoint
-
-        while True:
-            if pc == breakaddr:
-                breakcount -= 1
-                if breakcount == 0:
-                    break
-            pc = emulator.process()
-         
         Triton = emulator.triton
         treg = eval('Triton.registers.' + reg)
         astCtxt = Triton.getAstContext()

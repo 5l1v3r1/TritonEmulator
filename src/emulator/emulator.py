@@ -64,10 +64,6 @@ class Emulator(object):
         Arguments:
             binary:      path of executable binary 
             dumpfile:    path of memory snapshot file
-            show_inst:   switch to show instrument disassembly code
-            show_output: switch to show program output
-            symbolize:   switch to symbolize program input
-            isTaint:     switch to taint program input
         """
 
         self.binary = binary
@@ -123,6 +119,7 @@ class Emulator(object):
         self.SyscallFail = False
         # last pc address
         self.last_pc = 0
+        self.inst_count = 0
 
 
     """
@@ -652,6 +649,7 @@ class Emulator(object):
             self.running = False
             return False
 
+        self.inst_count += 1
 
         if pc == self.last_pc:
             self.inst_loop += 1
